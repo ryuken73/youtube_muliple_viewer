@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<head>
+        <style type='text/css'>
+            #container {
+                display: flex;
+                flex-direction: row;
+                flex-wrap: wrap
+            }
+            .playerContainer{
+                margin: 5px;
+            }
+        </style>
+</head>
+<html>
+  <body>
+    <!-- 1. The <iframe> (and video player) will replace this <div> tag. -->
+    
+    <input id="inputId" type="text" placeholder="add youtube id to monitor"></input>
+    <button id="inButton">add</button>
+    <div id="container"></div>
+    <p></p>
+    <textarea rows="20" cols="100"></textarea>
+
+    <script>      
+        // 2. This code loads the IFrame Player API code asynchronously.
+        const tag = document.createElement('script');
+
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag); 
+
+        // common functions
+        const textarea = document.querySelector('textarea');
+        const storedId = new Map();
+        storedId
+        .set('6CDRLdGanNg', 'SBS 모바일24')
+        .set('_OEmgIIt23U', 'SBS Channel#1')
+        .set('uUxThhaZvd8', 'MBC Channel#1')
+        .set('7q6Vf9Px3FI', 'KBS news')
+        .set('eQMnfGcPZZw', 'CBS')
+        .set('yGa9-dQyRR0', 'TBS')
+        .set('oul5ldEUbHk', '연합뉴스')
+
+        const addLog = ({event, channelName, message}) => {
+            // console.log(event)
+            const date = new Date();
+            const {title,author} = event.target.playerInfo.videoData;
+            const playerTitle = channelName || author
+            const combinedMsg = `${date.toLocaleString()} [${playerTitle}] ${message} ${title.substring(0,20)}  `
+            textarea.value = textarea.value + '\n' + combinedMsg;
+            textarea.scrollTop = textarea.scrollHeight;
+        }
+
+        var done = false;
+        const playerState = new Map();
+        playerState
+        .set(-1, 'unstarted')
+        .set(0, 'ended')
+        .set(1, 'playing')
+        .set(2, 'paused')
+        .set(3, 'buffering')
+        .set(5, 'video cued');
+
+        function onPlayerReady(videoId) {
+            return event => {
+                event.target.playVideo();
+                addLog({
+                    event, 
+                    channelName:storedId.get(videoId), 
+                    message:event.data
+                });
+            }
+        }
+
+        function onPlayerStateChange(videoId) {
+            return event => {
+                const eventString = playerState.get(event.data);
+                addLog({
+                    event, 
+                    channelName: storedId.get(videoId), 
+                    message: `${eventString} : code[${event.data}]`
+                });
+                if (event.data == YT.PlayerState.PLAYING && !done) {
+                // setTimeout(stopVideo, 6000);
+                done = true;}
+            }
+
+        }
+        function stopVideo() {
+            player.stopVideo();
+        }
+        function handleError(event) {
+            addLog({
+                    event, 
+                    message: event.data
+            });
+            console.log(event)
+        }
+
+        function onYouTubeIframeAPIReady() {
+            _yt_monitor_main()
+        }
+
+        function _yt_monitor_main(){
+            const defaultHeight = '200'
+            const defaultWidth = '320';
+            
+            const inputId = document.querySelector('#inputId');
+            const inButton = document.querySelector('#inButton');
+            const playerContainer = document.querySelector('#playerContainer');
+            const playerList = new Map();
+
+            addIframePlayerForPredeinedID(storedId);
+
+            function addIframePlayerForPredeinedID(storedId){
+                [...storedId].forEach(([videoId, title]) => {
+                    addIframePlayer(videoId);
+                })
+            }
+            
+            inButton.addEventListener('click', event => {
+                const videoId = inputId.value;
+                addIframePlayer(videoId);
+            })
+
+            function addIframePlayer(videoId){
+                const playerContainer = document.createElement('div');
+                playerContainer.className = 'playerContainer';
+                playerContainer.style.display = 'flex';
+                playerContainer.style.flexDirection = 'column';
+                const closeButton = document.createElement('button');
+                closeButton.className = "closeBtnClass";
+                closeButton.innerText = `${storedId.get(videoId)} : close`;
+                const playerElement = document.createElement('div');    
+                playerContainer.appendChild(playerElement);
+                playerContainer.appendChild(closeButton);
+                container.appendChild(playerContainer);
+
+                const player = new YT.Player(playerElement, {
+                    height: defaultHeight,
+                    width: defaultWidth,
+                    videoId,
+                    events: {
+                        'onReady': onPlayerReady(videoId),
+                        'onStateChange': onPlayerStateChange(videoId)
+                    }
+                })
+
+                closeButton.addEventListener('click', () => {
+                    closeButton.remove();
+                    player.destroy();
+                })
+                playerList.set(videoId, player);
+            }
+        }
+
+    </script>
+  </body>
+</html>
